@@ -1,0 +1,196 @@
+﻿#include <assert.h>
+#include "scene.h"
+#include "ite/itp.h"
+#include "extend/FileCom.h"
+static ITULayer*MainMenuLayer;
+static ITUBackground*MainMenuLayerBG;
+static ITUText*MainCycleTemperText, *MainTemperText;
+static ITUSprite*MainMenuCycleSprite, *TopSideCtrlSprite[TOPSIDE_MAX], *CurTemperHSprite, *CurTemperLSprite, *AISprite, *HeaterSprite[2], *MainTemperSprite;
+
+
+uint32_t wMainConfigSaveCnt = 0;
+uint32_t wMainMenuTick = 0;
+#pragma execution_character_set("utf-8")
+bool AICatoonShow(uint8_t val1, uint8_t val2)
+{
+	bool ret = false;
+	if ((10 == val1) || (5 == val1) || (0 == val1) || (10 == val2) || (5 == val2) || (0 == val2)){
+		if (!AISprite->playing){
+			ituSpritePlay(AISprite, 0);
+			ret |= true;
+		}
+	}
+	else{
+		if ((AISprite->playing) || (AISprite->frame)){
+			ituSpriteGoto(AISprite, 0);
+			ituSpriteStop(AISprite);
+			ret |= true;
+		}
+	}
+	return ret;
+}
+bool MainMenuCycleSync(uint8_t id)
+{
+	bool ret = false;
+	static int backid = -1;
+	static int temper = -1;
+	char buf[40];
+	if ((backid != id) || (temper != tCycleParamTab[id].bTemperVal)){
+		backid = id;
+		temper = tCycleParamTab[id].bTemperVal;
+		ituSpriteGoto(MainMenuCycleSprite, id);
+		sprintf(buf, "%d%s", tCycleParamTab[id].bTemperVal, "℃");
+		ituTextSetString(MainCycleTemperText, buf);
+		printf("id=%d,val=%d\n", id, tCycleParamTab[id].bTemperVal);
+		ret = true;
+	}
+	return ret;
+}
+bool MainMenuWaterTemperLevelSync(uint8_t temper,uint8_t level)
+{
+	bool ret = false;
+	static int temperback = 0;
+	static int levelback = 0;
+	if (temperback != temper){
+		printf("MainMenuWaterTemperLevelSync:temper[%d]->[%d]\n", temperback, temper);
+		temperback = temper;
+		ituSpriteGoto(CurTemperHSprite, temper / 10);
+		ituSpriteGoto(CurTemperLSprite, temper % 10);
+		ret |= true;
+	}
+	if (levelback != level){
+		printf("MainMenuWaterTemperLevelSync:level[%d]->[%d]\n", levelback, level);
+		levelback = level;
+		ret |= true;
+	}
+	return ret;
+}
+bool HeaterWaterLevelStateShow(uint8_t state, uint8_t level, bool init)
+{
+	bool ret = false;
+	static int stateback = -1;
+	static int posback = -1;
+	uint16_t pos = 0;
+	if (init){
+		stateback = -1;
+		posback = -1;
+	}
+	if (stateback != state){
+		stateback = state;
+		ituSpriteGoto(MainTemperSprite, stateback);
+		ret |= true;
+	}
+	if (posback != level){
+		posback = level;
+		pos = (100 - posback)*ituWidgetGetHeight(MainTemperSprite)/100;
+		ituWidgetSetY(HeaterSprite[MainTemperSprite->frame], pos);
+		ret |= true;
+	}
+	return ret;
+}
+bool MainMenuLayerOnEnter(ITUWidget* widget, char* param)
+{
+	int i = 0;
+	char buf[40];
+	if (!MainMenuLayer){
+		MainMenuLayer = ituSceneFindWidget(&theScene, "MainMenuLayer");
+		MainMenuLayerBG = ituSceneFindWidget(&theScene, "MainMenuLayerBG");
+		MainCycleTemperText = ituSceneFindWidget(&theScene, "MainCycleTemperText");
+		MainTemperText = ituSceneFindWidget(&theScene, "MainTemperText");
+		MainMenuCycleSprite = ituSceneFindWidget(&theScene, "MainMenuCycleSprite");
+		AISprite = ituSceneFindWidget(&theScene, "AISprite");
+		CurTemperHSprite = ituSceneFindWidget(&theScene, "CurTemperHSprite");
+		CurTemperLSprite = ituSceneFindWidget(&theScene, "CurTemperLSprite");
+		MainTemperSprite = ituSceneFindWidget(&theScene, "MainTemperSprite");
+		for (i = 0; i < TEMPER_CATOON_MAX; i++){
+			sprintf(buf, "HeaterSprite%d", i);
+			HeaterSprite[i] = ituSceneFindWidget(&theScene, buf);
+		}
+		for (i = 0; i < TOPSIDE_MAX; i++){
+			sprintf(buf, "TopSideCtrlSprite%d", i);
+			TopSideCtrlSprite[i] = ituSceneFindWidget(&theScene, buf);
+		}
+	}
+	OperatorParam.LayerID = LAYER_MAIN_MENU;
+	//ituCheckBoxSetChecked(MainMenuAICheckBox,tConfig.Enable_AISurface);
+#ifdef ENABLE_RESERV
+	if (tConfigFileReserv.bEnableBit) ituSpriteGoto(TopSideCtrlSprite[TOPSIDE_RESERV], 1);
+	else                              ituSpriteGoto(TopSideCtrlSprite[TOPSIDE_RESERV], 0);
+#endif
+	
+	HeaterWaterLevelStateShow(tProcessVal.eHeaterState, tProcessVal.bWaterLevel,true);
+	wMainMenuTick = itpGetTickCount();
+	printf("%s\n", __func__);
+    return true;
+}
+
+bool MainMenuLayerOnTimer(ITUWidget* widget, char* param)
+{
+	bool ret = false;
+	int ypos = 0;
+	static uint8_t tone = SOUND_FUNCTION_IN;
+	if (itpGetTickDuration(wMainMenuTick) >= 5 * 1000){
+		tProcessVal.eHeaterState++;
+		tProcessVal.eHeaterState%=HEATER_STATE_MAX;
+		wMainMenuTick = itpGetTickCount();
+	}
+#if 0
+	if (itpGetTickDuration(wMainMenuTick) >= 3 * 1000){
+		AudioKeySound(tone);
+		if (SOUND_FUNCTION_IN == tone) tone = SOUND_FUNCTION_OUT;
+		else if (SOUND_FUNCTION_OUT == tone) tone = SOUND_CLICK;
+		else if (SOUND_CLICK == tone) tone = SOUND_CLICK2;
+		else if (SOUND_CLICK2 == tone) tone = SOUND_FUNCTION_IN;
+		wMainMenuTick = itpGetTickCount();
+	}
+#endif
+	/*****************************************************************************/
+	if (OperatorParam.ProcessID){
+		if (ituWidgetIsEnabled(MainMenuLayerBG)) ituWidgetDisable(MainMenuLayerBG);	
+	}
+	else{
+		if (!ituWidgetIsEnabled(MainMenuLayerBG)) ituWidgetEnable(MainMenuLayerBG);
+	}
+	/*****************************************************************************/
+	ret |= MainMenuCycleSync(OperatorParam.CycleID);
+	ret |= MainMenuWaterTemperLevelSync(tProcessVal.bCurTemperVal, tProcessVal.bWaterLevel);
+	ret |= AICatoonShow(tProcessVal.bAIFilterVal[0], tProcessVal.bAIFilterVal[1]);
+	if ((bit_Config_AISurface != tConfig.Enable_AISurface) && (itpGetTickDuration(wMainConfigSaveCnt) >= CONFIG_SAVE_TIME))
+		ConfigSave();
+	ret |= HeaterWaterLevelStateShow(tProcessVal.eHeaterState, tProcessVal.bWaterLevel, false);
+	return ret;
+}
+
+bool MainMenuLayerOnLeave(ITUWidget* widget, char* param)
+{
+	//printf("%s\n", __func__);
+	if ((bit_Config_AISurface != tConfig.Enable_AISurface))
+		ConfigSave();
+    return true;
+}
+
+bool MainMenuBtnOnPress(ITUWidget* widget, char* param)
+{
+	int val = atoi(param);
+	if (0 == val) ProcessShow(PROCESS_ID_SET_CYCLE, INFO_ID_NULL);
+	else if (1 == val){
+		ITULayer*golayer = ituSceneFindWidget(&theScene, "LogoLayer");
+		ituLayerGoto(golayer);
+		OperatorParam.PowerStatus = 0;
+	}
+	else if (2 == val) ProcessShow(PROCESS_ID_AI_FILTER, INFO_ID_NULL);
+	AudioKeySound(SOUND_FUNCTION_IN);
+    return true;
+}
+bool TopSideBtnOnPress(ITUWidget* widget, char* param)
+{
+	int val = atoi(param);
+	if (0 == val) ProcessShow(PROCESS_ID_RESERV, INFO_ID_NULL);
+	else if (2 == val){
+		ITULayer*golayer = ituSceneFindWidget(&theScene, "ConfigLayer");
+		ituLayerGoto(golayer);
+	}
+	AudioKeySound(SOUND_CLICK2);
+    return true;
+}
+

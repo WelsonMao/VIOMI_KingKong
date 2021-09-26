@@ -1,0 +1,10 @@
+#ifndef __CRC_H__
+#define __CRC_H__
+uint8_t GetCrc8(uint8_t init, uint8_t * buf, uint8_t size);
+uint8_t GetCrc8Val(uint8_t*data, uint8_t offset, uint8_t length);
+uint16_t Crc16Check(void const *puchMsg, unsigned short usDataLen);
+uint16_t Crc16CheckRealTime(unsigned short vByte);
+uint16_t GetLCRC16(uint8_t *buff,uint8_t cntnum);
+uint16_t Aux_ChecksumGet(uint8_t *data, uint16_t len);
+uint8_t CRCSumGet(uint8_t *data, uint16_t len);
+#endif

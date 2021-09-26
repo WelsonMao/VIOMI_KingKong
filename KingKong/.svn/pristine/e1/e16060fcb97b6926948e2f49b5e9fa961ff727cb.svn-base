@@ -1,0 +1,20 @@
+﻿#include <assert.h>
+#include "../scene.h"
+#include <sys/ioctl.h>
+#include <mqueue.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdio.h>
+#include "../ctrlboard.h"
+#include "ite/itp.h"
+#include "ite/ith.h"
+#include "uart/uart.h"
+#include "COM.h"
+#include "../extend/CRC.h"
+#include "UART_DataTrans.h"
+#include "UART_Task.h"
+//#include "../wifi/BEH_OTA_pub.h"
+//#include "../wifi/BEH_Wifi_pub.h"
+COM_ERR_t  tComErr;
+
+

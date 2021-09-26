@@ -1,0 +1,196 @@
+﻿#include "task_queue.h"
+#include "COM.h"
+
+static QUEUE ControlBoardUartQueue;
+
+static QUEUE QueueCmdFromOut;
+
+
+void InitQueue(QUEUE* Queue)
+{
+	int i;
+	for (i=0;i<MSG_SIZE;i++)
+	{
+		Queue->TxEvent[i].eventId   = TYPE_NONE;
+		Queue->TxEvent[i].argvInt   = 0;
+		memset(Queue->TxEvent[i].data,0,sizeof(MSG_LEN));
+ 	}
+ 	Queue->front=Queue->rear=0;
+}
+
+int EmptyQueue(QUEUE* Queue)
+{
+ 	return (Queue->front==Queue->rear);
+}
+int FullQueue(QUEUE* Queue)
+{
+ 	return (((Queue->front+1)%MSG_SIZE)==Queue->rear);
+}
+void InQueue(QUEUE* Queue, uint8_t event_id, uint32_t value, uint8_t *data, uint32_t len, uint8_t app_ctl)
+{
+ 	if (!FullQueue(Queue))
+ 	{
+ 		Queue->TxEvent[Queue->front].eventId    = event_id;
+		Queue->TxEvent[Queue->front].argvInt    = value;
+		Queue->TxEvent[Queue->front].len        = len;
+		memcpy(Queue->TxEvent[Queue->front].data, data, len);
+		Queue->TxEvent[Queue->front].app_ctl = app_ctl;
+  		Queue->front=(Queue->front+1)%MSG_SIZE;
+ 	}else{
+  		//log_out("Queue is FULL ,can not input!\n");
+ }
+}
+
+void InQueue_HPri(QUEUE* Queue, uint8_t event_id, uint32_t value, uint8_t *data, uint32_t len)
+{
+	if (FullQueue(Queue))
+	{
+		//log_out("Queue is FULL ,delete front!\n");
+		Queue->front = (Queue->front+(MSG_SIZE-1))%MSG_SIZE;
+	}
+	Queue->rear  = (Queue->rear+(MSG_SIZE-1))%MSG_SIZE;
+ 	Queue->TxEvent[Queue->rear].eventId     = event_id;
+	Queue->TxEvent[Queue->rear].argvInt     = value;
+	Queue->TxEvent[Queue->rear].len         = len;
+	memcpy(Queue->TxEvent[Queue->rear].data, data, len);
+}
+
+void InQueue_Repeat(QUEUE* Queue)
+{
+	if (FullQueue(Queue))
+	{
+		//log_out("Queue is FULL ,delete front!\n");
+		Queue->front = (Queue->front+(MSG_SIZE-1))%MSG_SIZE;
+	}
+	Queue->rear = (Queue->rear+(MSG_SIZE-1))%MSG_SIZE;
+}
+
+
+int OutQueue(QUEUE* Queue, uart_event_msg_t * uart_tx)
+{
+ 	int temp;
+ 	if (!EmptyQueue(Queue))
+ 	{
+		uart_tx->eventId    = Queue->TxEvent[Queue->rear].eventId;
+		uart_tx->argvInt    = Queue->TxEvent[Queue->rear].argvInt;
+		uart_tx->len        = Queue->TxEvent[Queue->rear].len;
+		memcpy(uart_tx->data, Queue->TxEvent[Queue->rear].data, uart_tx->len);
+		uart_tx->app_ctl    = Queue->TxEvent[Queue->rear].app_ctl;
+  		Queue->rear         =(Queue->rear+1)%MSG_SIZE;
+ 	}else{
+  		//printf("Queue is empty\r\n");
+		return -1;
+ 	}
+ 	return 0;
+}
+
+
+void PrintQueue(QUEUE* Queue)
+{
+ 	int front=Queue->front;
+ 	int rear =Queue->rear;
+ 	if (front == rear)
+ 	{
+  		printf("Queue is empty!\r\n");
+		return ;
+ 	}
+	printf("Queue member:\r\n");
+ 	while(front != rear)
+ 	{
+  		printf("type:%d, value:%d, app_ctl=%d\r\n", Queue->TxEvent[rear].eventId, 
+													Queue->TxEvent[rear].argvInt, 
+													Queue->TxEvent[rear].app_ctl);
+  		rear=(rear+1)%MSG_SIZE;
+ 	}
+ 	printf("End\r\n");
+}
+
+int uartTaskPrintTest(void)
+{
+    PrintQueue(&ControlBoardUartQueue);
+}
+
+int uartTaskQueueInit(void)
+{
+    InitQueue(&ControlBoardUartQueue);
+}
+
+int uartTaskQueueIn(Customer_FrameType_t type, uint32_t value, uint8_t *data, int data_len)
+{
+	uint8_t app_ctl = FALSE;
+	if(TYPE_NONE != type){
+		if(TYPE_CONTROL == type){
+			app_ctl = TRUE;
+		}
+        
+		InQueue(&ControlBoardUartQueue,type, value, data, data_len, app_ctl);
+        //printf("InQueue ok\r\n");
+	}
+	return app_ctl;
+}
+
+
+int uartTaskQueueOut(void)
+{
+    int bRet = 0;
+    uart_event_msg_t Pulsator_Evtmsg={0};
+	OutQueue(&ControlBoardUartQueue, &Pulsator_Evtmsg);
+
+    if(TYPE_CONTROL == Pulsator_Evtmsg.eventId){
+        bRet = Pulsator_Evtmsg.argvInt;
+    }
+
+    return bRet;
+}
+
+
+int CmdTaskQueueInit(void)
+{
+    InitQueue(&ControlBoardUartQueue);
+}
+
+int CmdTaskQueueIn(Customer_FrameType_t type, uint32_t value, uint8_t *data, int data_len)
+{
+	uint8_t app_ctl = FALSE;
+    InQueue(&QueueCmdFromOut,type, value, data, data_len, app_ctl);
+    
+	return app_ctl;
+}
+
+
+int CmdTaskQueueOut(uint8_t *cmd, uint32_t *data)
+{
+    int bRet = 0;
+    uart_event_msg_t Pulsator_Evtmsg={0};
+	bRet = OutQueue(&QueueCmdFromOut, &Pulsator_Evtmsg);
+
+    if(0 == bRet){
+        *cmd = Pulsator_Evtmsg.eventId;
+        *data = Pulsator_Evtmsg.argvInt;
+    }
+
+    return bRet;
+}
+
+#if 0
+int Pulsator_EventInfo(Customer_FrameType_t type, uint32_t value, uint8_t *data, int data_len)
+{
+    InQueue(&PulsatorQueue,type, value, data, data_len, 0);
+	return TRUE;
+}
+
+int Pulsator_OutInfo()
+{
+    int bRet = 0;
+    uart_event_msg_t Pulsator_Evtmsg={0};
+	OutQueue(&PulsatorQueue, &Pulsator_Evtmsg);
+
+    if(TYPE_CONTROL == Pulsator_Evtmsg.eventId){
+        bRet = Pulsator_Evtmsg.argvInt;
+    }
+
+    return bRet;
+}
+
+#endif
+

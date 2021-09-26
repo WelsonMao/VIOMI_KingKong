@@ -1,0 +1,66 @@
+﻿#ifndef __TASK_QUEUE_H__
+#define __TASK_QUEUE_H__
+//#include "hport.h"
+//#include "serial_com.h"
+//#include "ddl.h"
+
+#include <assert.h>
+#include "../scene.h"
+#include "ite/itp.h"
+
+
+#define BOARD_WIFI_BUF_LEN 		(8)
+
+#define MSG_SIZE 				10
+#define MSG_LEN  				(BOARD_WIFI_BUF_LEN+1)
+
+
+typedef enum{
+	TYPE_NONE    		    = 0x00,
+    TYPE_CONTROL,
+	TYPE_UPLOAD_STATUS,
+	TYPE_SET_WIFIMODE,
+}Customer_FrameType_t;
+
+typedef struct uart_event_msg
+{
+    uint8_t   eventId;
+    uint32_t  argvInt;
+	uint32_t  len;
+	uint8_t   data[MSG_LEN];
+	uint8_t   app_ctl;
+}uart_event_msg_t;
+
+
+typedef struct Queue_tag{
+	uart_event_msg_t TxEvent[MSG_SIZE];
+	int front,rear;
+}QUEUE;
+
+#if 0
+extern void InitQueue(QUEUE* Queue);
+extern void InQueue_Repeat(QUEUE* Queue);
+extern void InQueue(QUEUE* Queue, uint8_t event_id, uint32_t value, uint8_t *data, uint32_t len, uint8_t app_ctl);
+extern void InQueue_HPri(QUEUE* Queue, uint8_t event_id, uint32_t value, uint8_t *data, uint32_t len);
+extern int OutQueue(QUEUE* Queue, uart_event_msg_t * uart_tx);
+extern int Uart_EventInfo(Customer_FrameType_t type, uint32_t value, uint8_t *data, int data_len);
+extern int Pulsator_EventInfo(Customer_FrameType_t type, uint32_t value, uint8_t *data, int data_len);
+extern int Pulsator_OutInfo();
+#else
+extern int uartTaskPrintTest(void);
+
+extern int uartTaskQueueInit(void);
+
+extern int uartTaskQueueOut(void);
+
+extern int uartTaskQueueIn(Customer_FrameType_t type, uint32_t value, uint8_t *data, int data_len);
+
+extern int CmdTaskQueueInit(void);
+
+extern int CmdTaskQueueOut(uint8_t *cmd, uint32_t *data);
+
+extern int CmdTaskQueueIn(Customer_FrameType_t type, uint32_t value, uint8_t *data, int data_len);
+
+#endif
+
+#endif

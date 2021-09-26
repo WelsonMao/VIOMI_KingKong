@@ -1,0 +1,108 @@
+﻿#include <assert.h>
+#include "../scene.h"
+/*global define*/
+// need to install VS90SP1-KB980263-x86.exe for vs2008
+#pragma execution_character_set("utf-8")
+#ifdef _WIN32
+#define WIN32_COM           1
+#define CFG_UART0_BAUDRATE 115200
+#endif
+
+
+#ifndef NULL
+#define NULL	(void *)0
+#endif
+#define COM_ERR_ID     27
+typedef struct
+{
+	bool ComState;
+	uint32_t  wComCnt;
+}COM_ERR_t;
+extern COM_ERR_t  tComErr;
+#if 0
+typedef enum
+{
+	FALSE = 0,
+	TRUE = 1
+}bool_e;
+
+
+typedef void(*T_pfVoidFuncVoid)(void);
+
+typedef enum 
+{
+	GET_HEADER_DLE=0,
+	GET_HEADER_STX_ACK,
+	GET_HEADER_DES,
+	GET_HEADER_SAP,
+	GET_LENGTH,
+	GET_PAYLOAD,
+	GET_CHECKSUM,
+    GET_MIIOTPAYLOAD,
+}UARTREV_STATE_e;
+typedef struct
+{
+	uint8_t inDataBuf[20];
+	uint8_t cmdPos;
+	uint8_t Rev_Num;
+	uint8_t Data_Length;
+	uint8_t payloadCount;
+	uint8_t checkSum;
+	uint8_t RevBuf[100];
+	UARTREV_STATE_e eGetState;
+}UARTREV_t;
+
+typedef enum
+{
+        VOID_FUNC_HEATBEAT=0
+	, VOID_FUNC_MCSTATUS
+	,VOID_FUNC_MCEVENT
+	,VOID_FUNC_NUM
+}VOIDFUNCNUM_e;
+/*********WQueue define*************/
+typedef enum
+{
+	 WQueue_State_Idle =0
+	,WQueue_State_Send
+}WQUEUESTATE_e;
+#define RVQUEUE_FIXED_TIMEOUT           100   
+extern WQUEUESTATE_e _eWQueue_State;
+
+typedef struct
+{
+	uint16_t  msec;
+	void* pCallback;
+} Vtimer_t;
+
+typedef struct _STRUCT_UART_DRIVE_{
+	volatile uint8_t  u8UartDriveFlag;
+	uint8_t  u8UartFlagChar;
+	volatile uint8_t  u8UartReceiveIndex;
+	uint8_t* pu8UartReceiveOrgAddr;
+	volatile uint8_t  u8UartSendIndex;
+	uint8_t* pu8UartSendOrgAddr;
+	uint8_t  u8UartSendLen;
+}STRUCT_UART_DRIVE;
+
+/*******************************************************************
+����������
+*******************************************************************/
+
+#define B_UDF_IS_SENDING                      ( 0 )
+//#define B_UDF_IS_RECEIVING                    ( 1 )
+
+ STRUCT_UART_DRIVE sgUartDrive;
+
+
+ extern bool GetUartSendReadyStatus(void);
+
+//extern bool RevFrameCheck(uint8_t readLen);
+extern void StartUartSend(char* pu8UartSendAddr, char u8UartFlagChar);
+extern void WIN_LoopTask(void);
+extern void vtimer_init(void);
+extern void VSetTime(uint16_t time,  VOIDFUNCNUM_e name,void*pCallback);
+extern void Schedule_TimeInit(void);
+extern void UART_ProtocolInit(void);
+extern void ResetUartReceive(void);
+#endif
+

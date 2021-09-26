@@ -1,0 +1,53 @@
+#include <assert.h>
+#include "scene.h"
+#include "ite/itp.h"
+#include "castor3player.h"
+#include "ite/itv.h"
+static ITULayer*PowerOnLayer, *LogoLayer;
+static ITUBackground*PowerOnLayerBG;
+static ITUVideo*PowerOnVideo;
+
+char* filenames[] = {
+	"B:/media/PowerOn.mkv"
+};
+/***************************************************************************/
+static void PowerOnVideoOnStop(ITUVideo* video)
+{
+	printf("**********************PowerOnVideoOnStop************\n");
+	ituLayerGoto(LogoLayer);
+}
+/***************************************************************************/
+void VideoSelectPlay(ITUVideo*video, uint8_t index)
+{
+	strcpy(video->filePath, filenames[index]);
+	ituVideoPlay(video, 0);
+}
+bool PowerOnLayerOnEnter(ITUWidget* widget, char* param)
+{
+	if (!PowerOnLayer){
+		PowerOnLayer = ituSceneFindWidget(&theScene, "PowerOnLayer");
+		LogoLayer = ituSceneFindWidget(&theScene, "LogoLayer");
+		PowerOnLayerBG = ituSceneFindWidget(&theScene, "PowerOnLayerBG");
+		PowerOnVideo = ituSceneFindWidget(&theScene, "PowerOnVideo");
+	}
+#ifdef _WIN32
+	ituLayerGoto(LogoLayer);
+#else
+	VideoSelectPlay(PowerOnVideo, 0);
+	ituVideoSetOnStop(PowerOnVideo, PowerOnVideoOnStop);//PowerOnVideoOnStop
+#endif
+	AudioKeySound(SOUND_START);
+    return true;
+}
+bool PowerOnLayerOnTimer(ITUWidget* widget, char* param)
+{
+	bool ret = false;
+	return ret;
+}
+bool PowerOnLayerOnLeave(ITUWidget* widget, char* param)
+{
+    return true;
+}
+
+
+
